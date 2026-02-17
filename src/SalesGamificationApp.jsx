@@ -27,15 +27,15 @@ const SEED_CHALLENGES = [
   { id: 4, title: "Revenue Rocket", desc: "Erziele CHF 50k Umsatz in 2 Wochen",  reward: 2000, progress: 31000, total: 50000, icon: "🚀", deadline: "6 Tage", color: "#a855f7" },
 ];
 
-const ALL_BADGES = [
-  { icon: "🔥", name: "On Fire",      desc: "5 Tage Streak",         color: "#f97316" },
-  { icon: "💎", name: "Diamond",      desc: "CHF 100k+ Umsatz",      color: "#818cf8" },
-  { icon: "🎯", name: "Sharpshooter", desc: "80%+ Abschlussrate",    color: "#ef4444" },
-  { icon: "⚡", name: "Speed Demon",  desc: "10 Deals in einer Woche",color: "#facc15" },
-  { icon: "🌟", name: "Rising Star",  desc: "Bester Newcomer",       color: "#fbbf24" },
-  { icon: "🏆", name: "Champion",     desc: "Platz 1 Monatsranking", color: "#f59e0b" },
-  { icon: "🚀", name: "Rocket",       desc: "CHF 200k+ Umsatz",      color: "#6366f1" },
-  { icon: "🌱", name: "New Blood",    desc: "5 Neukunden gewonnen",  color: "#22c55e" },
+const SEED_BADGES = [
+  { icon: "🔥", name: "On Fire",      desc: "5 Tage Streak",         color: "#f97316", image: null },
+  { icon: "💎", name: "Diamond",      desc: "CHF 100k+ Umsatz",      color: "#818cf8", image: null },
+  { icon: "🎯", name: "Sharpshooter", desc: "80%+ Abschlussrate",    color: "#ef4444", image: null },
+  { icon: "⚡", name: "Speed Demon",  desc: "10 Deals in einer Woche",color: "#facc15", image: null },
+  { icon: "🌟", name: "Rising Star",  desc: "Bester Newcomer",       color: "#fbbf24", image: null },
+  { icon: "🏆", name: "Champion",     desc: "Platz 1 Monatsranking", color: "#f59e0b", image: null },
+  { icon: "🚀", name: "Rocket",       desc: "CHF 200k+ Umsatz",      color: "#6366f1", image: null },
+  { icon: "🌱", name: "New Blood",    desc: "5 Neukunden gewonnen",  color: "#22c55e", image: null },
 ];
 
 const CHALLENGE_ICONS  = ["🤝","📞","🌱","🚀","💰","🎯","⚡","🔥","🏆","📈"];
@@ -61,15 +61,24 @@ function useCountUp(target, dur = 1200) {
 function Avatar({ initials, size = 44 }) {
   const COLS = ["#6366f1","#8b5cf6","#06b6d4","#10b981","#f59e0b","#ef4444"];
   const bg = COLS[(initials.charCodeAt(0) + (initials[1] ? initials.charCodeAt(1) : 0)) % COLS.length];
+  const fontSize = initials.length > 2 ? size * 0.28 : size * 0.35;
   return (
     <div style={{ width: size, height: size, borderRadius: "50%",
       background: `linear-gradient(135deg,${bg}dd,${bg}88)`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'DM Mono',monospace", fontWeight: 700, fontSize: size * 0.35, color: "#fff",
+      fontFamily: "'DM Mono',monospace", fontWeight: 700, fontSize, color: "#fff",
       boxShadow: `0 0 0 2px ${bg}44`, flexShrink: 0 }}>
       {initials}
     </div>
   );
+}
+
+function BadgeDisplay({ icon, allBadges, size = 24 }) {
+  const badge = allBadges && allBadges.find(b => b.icon === icon);
+  if (badge && badge.image) {
+    return <img src={badge.image} alt={badge.name || icon} style={{ width: size, height: size, borderRadius: 4, objectFit: "cover" }} />;
+  }
+  return <span style={{ fontSize: size * 0.75 }}>{icon}</span>;
 }
 
 function RankBadge({ rank }) {
@@ -161,7 +170,7 @@ function Modal({ title, onClose, children }) {
 }
 
 // ─── MAIN TABS ───────────────────────────────────────────────────────────────
-function LeaderboardTab({ team, sortKey, setSortKey }) {
+function LeaderboardTab({ team, sortKey, setSortKey, allBadges }) {
   const sorted = [...team].sort((a, b) => b[sortKey] - a[sortKey]);
   const keys = [{ key: "points", label: "Punkte" }, { key: "revenue", label: "Umsatz" }, { key: "newClients", label: "Neukunden" }];
   return (
@@ -199,7 +208,7 @@ function LeaderboardTab({ team, sortKey, setSortKey }) {
                   value={sortKey === "revenue" ? p.revenue : sortKey === "newClients" ? p.newClients : p.points}
                   max={sortKey === "revenue" ? 250000 : sortKey === "newClients" ? 15 : 7000}
                   color={i === 0 ? "#fbbf24" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c2e" : "#6366f1"} />
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{p.badges.slice(0, 3).map((b, bi) => <span key={bi} style={{ fontSize: 16 }}>{b}</span>)}</div>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{p.badges.slice(0, 3).map((b, bi) => <span key={bi}><BadgeDisplay icon={b} allBadges={allBadges} size={20} /></span>)}</div>
               </div>
             </div>
             {p.streak > 4 && (
@@ -255,21 +264,23 @@ function ChallengesTab({ challenges }) {
   );
 }
 
-function AchievementsTab({ team }) {
+function AchievementsTab({ team, allBadges }) {
   const earned = new Set(team.flatMap(p => p.badges));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div>
         <div style={{ fontSize: 13, color: "#475569", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Alle Abzeichen</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 12 }}>
-          {ALL_BADGES.map((b, i) => {
+          {allBadges.map((b, i) => {
             const ok = earned.has(b.icon);
             return (
               <div key={i} style={{ background: ok ? `${b.color}10` : "rgba(255,255,255,0.02)",
                 border: `1px solid ${ok ? b.color + "40" : "rgba(255,255,255,0.06)"}`,
                 borderRadius: 16, padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, opacity: ok ? 1 : 0.4 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 12, background: ok ? `${b.color}20` : "rgba(255,255,255,0.04)",
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, filter: ok ? "none" : "grayscale(1)" }}>{b.icon}</div>
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, filter: ok ? "none" : "grayscale(1)" }}>
+                  {b.image ? <img src={b.image} alt={b.name} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} /> : b.icon}
+                </div>
                 <div>
                   <div style={{ fontWeight: 700, color: ok ? "#f1f5f9" : "#334155", fontSize: 14 }}>{b.name}</div>
                   <div style={{ fontSize: 12, color: "#475569" }}>{b.desc}</div>
@@ -288,7 +299,7 @@ function AchievementsTab({ team }) {
               <Avatar initials={p.avatar} size={40} />
               <div>
                 <div style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 14 }}>{p.name}</div>
-                <div style={{ display: "flex", gap: 4, marginTop: 4 }}>{p.badges.map((b, bi) => <span key={bi}>{b}</span>)}</div>
+                <div style={{ display: "flex", gap: 4, marginTop: 4 }}>{p.badges.map((b, bi) => <span key={bi}><BadgeDisplay icon={b} allBadges={allBadges} size={18} /></span>)}</div>
               </div>
             </div>
           ))}
@@ -298,7 +309,7 @@ function AchievementsTab({ team }) {
   );
 }
 
-function ProfileTab({ team }) {
+function ProfileTab({ team, allBadges }) {
   const me = team[0];
   const rank = [...team].sort((a, b) => b.points - a.points).findIndex(p => p.id === me.id) + 1;
   const kpis = [
@@ -321,7 +332,7 @@ function ProfileTab({ team }) {
           <div style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", marginBottom: 4 }}>{me.name}</div>
           <div style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>Sales Executive · Rang #{rank}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {me.badges.map((b, i) => <span key={i} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 10px", fontSize: 16 }}>{b}</span>)}
+            {me.badges.map((b, i) => <span key={i} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 10px", fontSize: 16, display: "inline-flex", alignItems: "center" }}><BadgeDisplay icon={b} allBadges={allBadges} size={22} /></span>)}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -358,7 +369,7 @@ function ProfileTab({ team }) {
 }
 
 // ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
-function AdminPanel({ team, setTeam, challenges, setChallenges, onToast }) {
+function AdminPanel({ team, setTeam, challenges, setChallenges, allBadges, setAllBadges, onToast }) {
   const [adminTab, setAdminTab] = useState(0);
   const ADMIN_TABS = ["📊 Deal erfassen","👤 Spieler","🏆 Challenges","🎖 Badges"];
   return (
@@ -377,7 +388,7 @@ function AdminPanel({ team, setTeam, challenges, setChallenges, onToast }) {
       {adminTab === 0 && <DealEntry      team={team} setTeam={setTeam} onToast={onToast} />}
       {adminTab === 1 && <PlayerMgmt     team={team} setTeam={setTeam} onToast={onToast} />}
       {adminTab === 2 && <ChallengeMgmt  challenges={challenges} setChallenges={setChallenges} onToast={onToast} />}
-      {adminTab === 3 && <BadgeMgmt      team={team} setTeam={setTeam} onToast={onToast} />}
+      {adminTab === 3 && <BadgeMgmt      team={team} setTeam={setTeam} allBadges={allBadges} setAllBadges={setAllBadges} onToast={onToast} />}
     </div>
   );
 }
@@ -507,7 +518,7 @@ function PlayerMgmt({ team, setTeam, onToast }) {
 
   function save() {
     if (!form.name.trim()) return;
-    const av = (form.avatar.trim().toUpperCase().slice(0, 2)) || form.name.trim().slice(0, 2).toUpperCase();
+    const av = (form.avatar.trim().toUpperCase().slice(0, 3)) || form.name.trim().slice(0, 3).toUpperCase();
     if (modal === "add") {
       setTeam(p => [...p, { id: Date.now(), name: form.name.trim(), avatar: av, revenue: 0, newClients: 0, calls: 0, points: 0, level: 1, badges: [], streak: 0 }]);
       onToast(`${form.name.trim()} hinzugefügt!`);
@@ -544,7 +555,7 @@ function PlayerMgmt({ team, setTeam, onToast }) {
         <Modal title={modal === "add" ? "Spieler hinzufügen" : "Spieler bearbeiten"} onClose={() => setModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <Field label="Name"><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Vorname Nachname" /></Field>
-            <Field label="Kürzel (2 Buchstaben)"><input style={inputStyle} value={form.avatar} onChange={e => setForm(f => ({ ...f, avatar: e.target.value }))} placeholder="z.B. SM" maxLength={2} /></Field>
+            <Field label="Kürzel (2–3 Buchstaben)"><input style={inputStyle} value={form.avatar} onChange={e => setForm(f => ({ ...f, avatar: e.target.value }))} placeholder="z.B. SM oder SAM" maxLength={3} /></Field>
             <button onClick={save} style={{ padding: "12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>Speichern ✓</button>
           </div>
         </Modal>
@@ -630,15 +641,45 @@ function ChallengeMgmt({ challenges, setChallenges, onToast }) {
 }
 
 // ── Badge Management ──────────────────────────────────────────────────────────
-function BadgeMgmt({ team, setTeam, onToast }) {
+function BadgeMgmt({ team, setTeam, allBadges, setAllBadges, onToast }) {
   const [sel, setSel] = useState({ playerId: "", badge: "" });
+  const [showCreate, setShowCreate] = useState(false);
+  const emptyBadge = { name: "", desc: "", color: "#6366f1", image: null, emoji: "" };
+  const [newBadge, setNewBadge] = useState(emptyBadge);
+
+  function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewBadge(b => ({ ...b, image: ev.target.result }));
+    reader.readAsDataURL(file);
+  }
+
+  function createBadge() {
+    if (!newBadge.name.trim()) return;
+    if (!newBadge.image && !newBadge.emoji.trim()) { onToast("Bitte Bild hochladen oder Emoji eingeben!"); return; }
+    const icon = newBadge.image ? `img_${Date.now()}` : newBadge.emoji.trim();
+    if (allBadges.some(b => b.icon === icon)) { onToast("Badge existiert bereits!"); return; }
+    const badge = { icon, name: newBadge.name.trim(), desc: newBadge.desc.trim(), color: newBadge.color, image: newBadge.image };
+    setAllBadges(prev => [...prev, badge]);
+    onToast(`Badge "${badge.name}" erstellt!`);
+    setNewBadge(emptyBadge);
+    setShowCreate(false);
+  }
+
+  function deleteBadge(icon) {
+    setAllBadges(prev => prev.filter(b => b.icon !== icon));
+    setTeam(prev => prev.map(p => ({ ...p, badges: p.badges.filter(b => b !== icon) })));
+    onToast("Badge gelöscht.");
+  }
 
   function award() {
     const p = team.find(x => x.id === Number(sel.playerId));
     if (!p || !sel.badge) return;
     if (p.badges.includes(sel.badge)) { onToast("Badge bereits vergeben!"); return; }
     setTeam(prev => prev.map(x => x.id === p.id ? { ...x, badges: [...x.badges, sel.badge] } : x));
-    onToast(`${sel.badge} an ${p.name} vergeben!`);
+    const badgeObj = allBadges.find(b => b.icon === sel.badge);
+    onToast(`${badgeObj ? badgeObj.name : sel.badge} an ${p.name} vergeben!`);
     setSel(s => ({ ...s, badge: "" }));
   }
 
@@ -648,9 +689,66 @@ function BadgeMgmt({ team, setTeam, onToast }) {
   }
 
   const canAward = sel.playerId && sel.badge;
+  const BADGE_COLORS = ["#f97316","#818cf8","#ef4444","#facc15","#fbbf24","#f59e0b","#6366f1","#22c55e","#ec4899","#06b6d4"];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Badge erstellen */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showCreate ? 20 : 0 }}>
+          <div style={{ fontWeight: 700, color: "#f1f5f9" }}>Badges verwalten</div>
+          <button onClick={() => setShowCreate(s => !s)} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: showCreate ? "rgba(239,68,68,0.15)" : "linear-gradient(135deg,#10b981,#059669)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+            {showCreate ? "Abbrechen" : "+ Badge erstellen"}
+          </button>
+        </div>
+        {showCreate && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Name"><input style={inputStyle} value={newBadge.name} onChange={e => setNewBadge(b => ({ ...b, name: e.target.value }))} placeholder="z.B. Top Closer" /></Field>
+              <Field label="Beschreibung"><input style={inputStyle} value={newBadge.desc} onChange={e => setNewBadge(b => ({ ...b, desc: e.target.value }))} placeholder="z.B. 90%+ Abschlussrate" /></Field>
+            </div>
+            <Field label="Badge-Bild hochladen">
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <label style={{ padding: "10px 18px", borderRadius: 10, border: "1px dashed rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.03)", color: "#94a3b8", cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                  📁 Bild wählen...
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+                </label>
+                {newBadge.image && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <img src={newBadge.image} alt="Vorschau" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", border: "2px solid rgba(255,255,255,0.15)" }} />
+                    <button onClick={() => setNewBadge(b => ({ ...b, image: null }))} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, color: "#fca5a5", cursor: "pointer", padding: "4px 8px", fontSize: 11 }}>Entfernen</button>
+                  </div>
+                )}
+              </div>
+            </Field>
+            {!newBadge.image && (
+              <Field label="Oder Emoji eingeben">
+                <input style={{ ...inputStyle, maxWidth: 80, fontSize: 22, textAlign: "center" }} value={newBadge.emoji} onChange={e => setNewBadge(b => ({ ...b, emoji: e.target.value }))} placeholder="🎖" maxLength={2} />
+              </Field>
+            )}
+            <Field label="Farbe">
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {BADGE_COLORS.map(col => (
+                  <button key={col} onClick={() => setNewBadge(b => ({ ...b, color: col }))} style={{ width: 32, height: 32, borderRadius: "50%", background: col, border: `3px solid ${newBadge.color === col ? "#fff" : "transparent"}`, cursor: "pointer" }} />
+                ))}
+              </div>
+            </Field>
+            <button onClick={createBadge} style={{ padding: "12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>Badge erstellen ✓</button>
+          </div>
+        )}
+        {/* Badge-Liste */}
+        <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {allBadges.map(b => (
+            <div key={b.icon} style={{ background: `${b.color}15`, border: `1px solid ${b.color}40`, borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+              {b.image ? <img src={b.image} alt={b.name} style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover" }} /> : <span style={{ fontSize: 18 }}>{b.icon}</span>}
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>{b.name}</span>
+              <button onClick={() => deleteBadge(b.icon)} title="Badge löschen" style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 12, padding: "2px 4px" }}>✕</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Badge vergeben */}
       <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24 }}>
         <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 20 }}>Badge manuell vergeben</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
@@ -663,7 +761,7 @@ function BadgeMgmt({ team, setTeam, onToast }) {
           <Field label="Badge">
             <select value={sel.badge} onChange={e => setSel(s => ({ ...s, badge: e.target.value }))} style={selectStyle}>
               <option value="">— wählen —</option>
-              {ALL_BADGES.map(b => <option key={b.icon} value={b.icon}>{b.icon} {b.name}</option>)}
+              {allBadges.map(b => <option key={b.icon} value={b.icon}>{b.image ? "🖼" : b.icon} {b.name}</option>)}
             </select>
           </Field>
         </div>
@@ -674,6 +772,7 @@ function BadgeMgmt({ team, setTeam, onToast }) {
         }}>Badge vergeben 🎖</button>
       </div>
 
+      {/* Badges pro Spieler */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ fontSize: 13, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>Badges pro Spieler</div>
         {team.map(p => (
@@ -686,7 +785,7 @@ function BadgeMgmt({ team, setTeam, onToast }) {
                 <button key={i} onClick={() => revoke(p.id, b)} title="Entfernen" style={{
                   background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
                   borderRadius: 8, padding: "4px 10px", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
-                }}>{b}<span style={{ fontSize: 10, color: "#ef4444" }}>✕</span></button>
+                }}><BadgeDisplay icon={b} allBadges={allBadges} size={22} /><span style={{ fontSize: 10, color: "#ef4444" }}>✕</span></button>
               ))}
             </div>
           </div>
@@ -702,6 +801,7 @@ export default function SalesGamificationApp() {
   const [sortKey,    setSortKey]    = useState("points");
   const [team,       setTeam]       = useState(SEED_TEAM);
   const [challenges, setChallenges] = useState(SEED_CHALLENGES);
+  const [allBadges,  setAllBadges]  = useState(SEED_BADGES);
   const [adminOpen,  setAdminOpen]  = useState(false);
   const [toast,      setToast]      = useState(null);
 
@@ -778,13 +878,13 @@ export default function SalesGamificationApp() {
       {/* Content */}
       <div style={{ maxWidth: 960, margin: "32px auto 0", padding: "0 24px", animation: "fadeIn 0.4s ease" }}>
         {adminOpen ? (
-          <AdminPanel team={team} setTeam={setTeam} challenges={challenges} setChallenges={setChallenges} onToast={setToast} />
+          <AdminPanel team={team} setTeam={setTeam} challenges={challenges} setChallenges={setChallenges} allBadges={allBadges} setAllBadges={setAllBadges} onToast={setToast} />
         ) : (
           <>
-            {activeTab === 0 && <LeaderboardTab team={team} sortKey={sortKey} setSortKey={setSortKey} />}
+            {activeTab === 0 && <LeaderboardTab team={team} sortKey={sortKey} setSortKey={setSortKey} allBadges={allBadges} />}
             {activeTab === 1 && <ChallengesTab challenges={challenges} />}
-            {activeTab === 2 && <AchievementsTab team={team} />}
-            {activeTab === 3 && <ProfileTab team={team} />}
+            {activeTab === 2 && <AchievementsTab team={team} allBadges={allBadges} />}
+            {activeTab === 3 && <ProfileTab team={team} allBadges={allBadges} />}
           </>
         )}
       </div>
