@@ -11,7 +11,9 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 // Azure App Service Linux uses /home/ for persistent storage
-const DATA_DIR = process.env.DATA_DIR || join(__dirname, "data");
+// WEBSITE_SITE_NAME is set automatically by Azure App Service
+const isAzure = !!process.env.WEBSITE_SITE_NAME;
+const DATA_DIR = process.env.DATA_DIR || (isAzure ? "/home/data" : join(__dirname, "data"));
 const DATA_FILE = join(DATA_DIR, "salesarena.json");
 
 app.use(express.json({ limit: "5mb" }));
