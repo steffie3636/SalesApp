@@ -57,7 +57,7 @@ const CHALLENGE_ICONS  = ["🤝","📞","🌱","🚀","💰","🎯","⚡","🔥"
 const CHALLENGE_COLORS = ["#f59e0b","#06b6d4","#10b981","#a855f7","#6366f1","#ef4444","#f97316","#22c55e","#ec4899","#8b5cf6"];
 const MAIN_TABS = ["Leaderboard","Challenges","Achievements","Mein Profil","Ziele"];
 
-// ─── LocalStorage persistence ────────────────────────────────────────────────
+// ─── Persistence (localStorage + server API) ────────────────────────────────
 const STORAGE_KEY = "salesarena_data";
 
 function loadPersistedData() {
@@ -70,6 +70,31 @@ function loadPersistedData() {
 
 function persistData(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* quota exceeded */ }
+}
+
+async function loadFromServer() {
+  try {
+    const res = await fetch("/api/data");
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch { /* server unavailable – fall back to localStorage */ }
+  return null;
+}
+
+let saveTimer = null;
+function saveToServer(data) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch { /* server unavailable – data still in localStorage */ }
+  }, 500);
 }
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
@@ -1120,9 +1145,24 @@ export default function SalesGamificationApp() {
   const [adminOpen,  setAdminOpen]  = useState(false);
   const [toast,      setToast]      = useState(null);
 
-  // Persist data to localStorage on every change
+  // On mount: try loading from server (shared data across all browsers)
   useEffect(() => {
-    persistData({ team, challenges, allBadges, targets, monthlyData });
+    loadFromServer().then(serverData => {
+      if (serverData) {
+        if (serverData.team)        setTeam(serverData.team);
+        if (serverData.challenges)  setChallenges(serverData.challenges);
+        if (serverData.allBadges)   setAllBadges(serverData.allBadges);
+        if (serverData.targets)     setTargets(serverData.targets);
+        if (serverData.monthlyData) setMonthlyData(serverData.monthlyData);
+      }
+    });
+  }, []);
+
+  // Persist data to localStorage + server on every change
+  useEffect(() => {
+    const data = { team, challenges, allBadges, targets, monthlyData };
+    persistData(data);
+    saveToServer(data);
   }, [team, challenges, allBadges, targets, monthlyData]);
 
   const today = new Date();
