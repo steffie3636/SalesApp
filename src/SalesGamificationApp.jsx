@@ -41,7 +41,7 @@ const SEED_BADGES = [
 const MONTHS = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 
 const SEED_TARGETS = {
-  year: 2025,
+  year: 2026,
   beNeukunden: 500000,
   anzNeukunden: 50,
   beTotal: 2000000,
@@ -1103,6 +1103,9 @@ export default function SalesGamificationApp() {
   const [adminOpen,  setAdminOpen]  = useState(false);
   const [toast,      setToast]      = useState(null);
 
+  const today = new Date();
+  const todayFormatted = today.toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
   const totalRevenue    = team.reduce((s, p) => s + p.revenue, 0);
   const totalNewClients = team.reduce((s, p) => s + p.newClients, 0);
   const totalPoints     = team.reduce((s, p) => s + p.points, 0);
@@ -1128,7 +1131,7 @@ export default function SalesGamificationApp() {
               <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏆</div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 20, color: "#f1f5f9", letterSpacing: "-0.03em" }}>SalesArena</div>
-                <div style={{ fontSize: 12, color: "#475569" }}>Q1 2025 · {team.length} Spieler aktiv</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>{todayFormatted} · {team.length} Spieler aktiv</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
