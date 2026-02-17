@@ -57,6 +57,21 @@ const CHALLENGE_ICONS  = ["🤝","📞","🌱","🚀","💰","🎯","⚡","🔥"
 const CHALLENGE_COLORS = ["#f59e0b","#06b6d4","#10b981","#a855f7","#6366f1","#ef4444","#f97316","#22c55e","#ec4899","#8b5cf6"];
 const MAIN_TABS = ["Leaderboard","Challenges","Achievements","Mein Profil","Ziele"];
 
+// ─── LocalStorage persistence ────────────────────────────────────────────────
+const STORAGE_KEY = "salesarena_data";
+
+function loadPersistedData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* ignore corrupt data */ }
+  return null;
+}
+
+function persistData(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* quota exceeded */ }
+}
+
 // ─── Shared primitives ───────────────────────────────────────────────────────
 function useCountUp(target, dur = 1200) {
   const [v, setV] = useState(0);
@@ -1093,15 +1108,22 @@ function TargetMgmt({ team, targets, setTargets, monthlyData, setMonthlyData, on
 
 // ─── ROOT ────────────────────────────────────────────────────────────────────
 export default function SalesGamificationApp() {
+  const saved = useState(() => loadPersistedData())[0];
+
   const [activeTab,  setActiveTab]  = useState(0);
   const [sortKey,    setSortKey]    = useState("points");
-  const [team,       setTeam]       = useState(SEED_TEAM);
-  const [challenges, setChallenges] = useState(SEED_CHALLENGES);
-  const [allBadges,  setAllBadges]  = useState(SEED_BADGES);
-  const [targets,    setTargets]    = useState(SEED_TARGETS);
-  const [monthlyData, setMonthlyData] = useState({});
+  const [team,       setTeam]       = useState(saved?.team       ?? SEED_TEAM);
+  const [challenges, setChallenges] = useState(saved?.challenges ?? SEED_CHALLENGES);
+  const [allBadges,  setAllBadges]  = useState(saved?.allBadges  ?? SEED_BADGES);
+  const [targets,    setTargets]    = useState(saved?.targets    ?? SEED_TARGETS);
+  const [monthlyData, setMonthlyData] = useState(saved?.monthlyData ?? {});
   const [adminOpen,  setAdminOpen]  = useState(false);
   const [toast,      setToast]      = useState(null);
+
+  // Persist data to localStorage on every change
+  useEffect(() => {
+    persistData({ team, challenges, allBadges, targets, monthlyData });
+  }, [team, challenges, allBadges, targets, monthlyData]);
 
   const today = new Date();
   const todayFormatted = today.toLocaleDateString("de-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
