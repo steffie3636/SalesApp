@@ -1016,14 +1016,15 @@ function TargetMgmt({ team, targets, setTargets, monthlyData, setMonthlyData, on
         )}
       </div>
 
-      {/* Overview table per player */}
+      {/* Overview table per player - cumulative */}
       <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24, overflowX: "auto" }}>
-        <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 20, fontSize: 16 }}>Übersicht {targets.year}</div>
+        <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 6, fontSize: 16 }}>Übersicht {targets.year}</div>
+        <div style={{ fontSize: 12, color: "#475569", marginBottom: 20 }}>Werte kumuliert (laufende Summe pro Monat)</div>
         {team.map(p => {
           const pData = monthlyData[p.id] || {};
           const hasData = Object.keys(pData).length > 0;
           return (
-            <div key={p.id} style={{ marginBottom: 20 }}>
+            <div key={p.id} style={{ marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <Avatar initials={p.avatar} size={32} />
                 <span style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 14 }}>{p.name}</span>
@@ -1032,29 +1033,48 @@ function TargetMgmt({ team, targets, setTargets, monthlyData, setMonthlyData, on
                 <div style={{ fontSize: 12, color: "#334155", padding: "8px 0" }}>Noch keine Daten erfasst</div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
                     <thead>
                       <tr>
                         <th style={thStyle}>KPI</th>
                         {MONTHS.map((m, i) => <th key={i} style={{ ...thStyle, textAlign: "right", color: pData[i] ? "#64748b" : "#1e293b" }}>{m}</th>)}
-                        <th style={{ ...thStyle, textAlign: "right", color: "#a5b4fc" }}>Total</th>
+                        <th style={{ ...thStyle, textAlign: "right", color: "#a5b4fc" }}>Ist Total</th>
+                        <th style={{ ...thStyle, textAlign: "right", color: "#f59e0b" }}>Ziel</th>
+                        <th style={{ ...thStyle, textAlign: "right", color: "#10b981" }}>%</th>
                       </tr>
                     </thead>
                     <tbody>
                       {TARGET_CATS.map(c => {
-                        let total = 0;
+                        let cumulative = 0;
+                        const cumulativeValues = MONTHS.map((_, i) => {
+                          cumulative += pData[i]?.[c.key] || 0;
+                          return { month: pData[i]?.[c.key] || 0, cum: cumulative };
+                        });
+                        const total = cumulative;
+                        const target = targets[c.key] || 0;
+                        const playerTarget = team.length > 0 ? Math.round(target / team.length) : 0;
+                        const pct = playerTarget > 0 ? Math.round((total / playerTarget) * 100) : 0;
                         return (
                           <tr key={c.key}>
-                            <td style={{ ...tdStyle, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: c.color, fontSize: 12 }}>{c.label}</td>
-                            {MONTHS.map((_, i) => {
-                              const val = pData[i]?.[c.key] || 0;
-                              total += val;
-                              return <td key={i} style={{ ...tdStyle, textAlign: "right", color: val > 0 ? "#cbd5e1" : "#1e293b" }}>
-                                {val > 0 ? (c.unit === "CHF" ? val.toLocaleString("de-CH") : val) : "–"}
-                              </td>;
-                            })}
+                            <td style={{ ...tdStyle, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: c.color, fontSize: 12, whiteSpace: "nowrap" }}>{c.label}</td>
+                            {cumulativeValues.map((v, i) => (
+                              <td key={i} style={{ ...tdStyle, textAlign: "right", color: v.cum > 0 ? "#cbd5e1" : "#1e293b", position: "relative" }}>
+                                {v.cum > 0 ? (
+                                  <div>
+                                    <div style={{ fontWeight: 700 }}>{c.unit === "CHF" ? v.cum.toLocaleString("de-CH") : v.cum}</div>
+                                    {v.month > 0 && <div style={{ fontSize: 10, color: "#475569" }}>+{c.unit === "CHF" ? v.month.toLocaleString("de-CH") : v.month}</div>}
+                                  </div>
+                                ) : "–"}
+                              </td>
+                            ))}
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: c.color }}>
                               {c.unit === "CHF" ? total.toLocaleString("de-CH") : total}
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#64748b" }}>
+                              {c.unit === "CHF" ? playerTarget.toLocaleString("de-CH") : playerTarget}
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: pct >= 100 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444" }}>
+                              {pct}%
                             </td>
                           </tr>
                         );
