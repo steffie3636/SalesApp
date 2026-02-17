@@ -38,9 +38,24 @@ const SEED_BADGES = [
   { icon: "🌱", name: "New Blood",    desc: "5 Neukunden gewonnen",  color: "#22c55e", image: null },
 ];
 
+const MONTHS = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+const SEED_TARGETS = {
+  year: 2025,
+  beNeukunden: 500000,
+  anzNeukunden: 50,
+  beTotal: 2000000,
+};
+
+const TARGET_CATS = [
+  { key: "beNeukunden", label: "BE Neukunden", icon: "🌱", color: "#10b981", unit: "CHF" },
+  { key: "anzNeukunden", label: "Anz. Neukunden", icon: "👥", color: "#6366f1", unit: "" },
+  { key: "beTotal", label: "BE Total", icon: "💰", color: "#f59e0b", unit: "CHF" },
+];
+
 const CHALLENGE_ICONS  = ["🤝","📞","🌱","🚀","💰","🎯","⚡","🔥","🏆","📈"];
 const CHALLENGE_COLORS = ["#f59e0b","#06b6d4","#10b981","#a855f7","#6366f1","#ef4444","#f97316","#22c55e","#ec4899","#8b5cf6"];
-const MAIN_TABS = ["Leaderboard","Challenges","Achievements","Mein Profil"];
+const MAIN_TABS = ["Leaderboard","Challenges","Achievements","Mein Profil","Ziele"];
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 function useCountUp(target, dur = 1200) {
@@ -368,10 +383,107 @@ function ProfileTab({ team, allBadges }) {
   );
 }
 
+// ─── TARGETS TAB ─────────────────────────────────────────────────────────────
+function TargetsTab({ team, targets, monthlyData }) {
+  function getPlayerTotals(playerId) {
+    const data = monthlyData[playerId] || {};
+    let beNeukunden = 0, anzNeukunden = 0, beTotal = 0;
+    for (const m of Object.values(data)) {
+      beNeukunden += m.beNeukunden || 0;
+      anzNeukunden += m.anzNeukunden || 0;
+      beTotal += m.beTotal || 0;
+    }
+    return { beNeukunden, anzNeukunden, beTotal };
+  }
+
+  const teamTotals = team.reduce((acc, p) => {
+    const t = getPlayerTotals(p.id);
+    return { beNeukunden: acc.beNeukunden + t.beNeukunden, anzNeukunden: acc.anzNeukunden + t.anzNeukunden, beTotal: acc.beTotal + t.beTotal };
+  }, { beNeukunden: 0, anzNeukunden: 0, beTotal: 0 });
+
+  function fmt(val, unit) { return unit === "CHF" ? `CHF ${val.toLocaleString("de-CH")}` : val.toLocaleString("de-CH"); }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ fontSize: 13, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
+        Jahresziele {targets.year}
+      </div>
+
+      {/* Team summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
+        {TARGET_CATS.map(c => {
+          const actual = teamTotals[c.key];
+          const target = targets[c.key] || 0;
+          const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
+          return (
+            <div key={c.key} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${c.color}33`, borderRadius: 20, padding: 24, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, borderRadius: "50%", background: `${c.color}15` }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <span style={{ fontSize: 24 }}>{c.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 15 }}>{c.label}</div>
+                  <div style={{ fontSize: 12, color: "#475569" }}>Team Total</div>
+                </div>
+              </div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 24, fontWeight: 800, color: c.color, marginBottom: 4 }}>
+                {fmt(actual, c.unit)}
+              </div>
+              <div style={{ fontSize: 12, color: "#475569", marginBottom: 12 }}>
+                Ziel: {fmt(target, c.unit)} · <span style={{ color: pct >= 100 ? "#10b981" : c.color, fontWeight: 700 }}>{pct}%</span>
+              </div>
+              <ProgressBar value={actual} max={target || 1} color={c.color} height={8} />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per player breakdown */}
+      <div>
+        <div style={{ fontSize: 13, color: "#475569", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Fortschritt pro Spieler</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {team.map(p => {
+            const t = getPlayerTotals(p.id);
+            const filledMonths = Object.keys(monthlyData[p.id] || {}).length;
+            return (
+              <div key={p.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "16px 20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                  <Avatar initials={p.avatar} size={40} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 15 }}>{p.name}</div>
+                    <div style={{ fontSize: 11, color: "#334155" }}>{filledMonths}/12 Monate erfasst</div>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  {TARGET_CATS.map(c => {
+                    const val = t[c.key];
+                    const target = targets[c.key] || 0;
+                    const playerShare = team.length > 0 ? target / team.length : 0;
+                    const pct = playerShare > 0 ? Math.round((val / playerShare) * 100) : 0;
+                    return (
+                      <div key={c.key}>
+                        <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}>{c.label}</div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", color: c.color, fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                          {fmt(val, c.unit)}
+                        </div>
+                        <ProgressBar value={val} max={playerShare || 1} color={c.color} height={4} />
+                        <div style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>{pct}% von {fmt(Math.round(playerShare), c.unit)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
-function AdminPanel({ team, setTeam, challenges, setChallenges, allBadges, setAllBadges, onToast }) {
+function AdminPanel({ team, setTeam, challenges, setChallenges, allBadges, setAllBadges, targets, setTargets, monthlyData, setMonthlyData, onToast }) {
   const [adminTab, setAdminTab] = useState(0);
-  const ADMIN_TABS = ["📊 Deal erfassen","👤 Spieler","🏆 Challenges","🎖 Badges"];
+  const ADMIN_TABS = ["📊 Deal erfassen","👤 Spieler","🏆 Challenges","🎖 Badges","📈 Ziele"];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -389,6 +501,7 @@ function AdminPanel({ team, setTeam, challenges, setChallenges, allBadges, setAl
       {adminTab === 1 && <PlayerMgmt     team={team} setTeam={setTeam} onToast={onToast} />}
       {adminTab === 2 && <ChallengeMgmt  challenges={challenges} setChallenges={setChallenges} onToast={onToast} />}
       {adminTab === 3 && <BadgeMgmt      team={team} setTeam={setTeam} allBadges={allBadges} setAllBadges={setAllBadges} onToast={onToast} />}
+      {adminTab === 4 && <TargetMgmt     team={team} targets={targets} setTargets={setTargets} monthlyData={monthlyData} setMonthlyData={setMonthlyData} onToast={onToast} />}
     </div>
   );
 }
@@ -795,6 +908,169 @@ function BadgeMgmt({ team, setTeam, allBadges, setAllBadges, onToast }) {
   );
 }
 
+// ── Target Management ────────────────────────────────────────────────────────
+function TargetMgmt({ team, targets, setTargets, monthlyData, setMonthlyData, onToast }) {
+  const [targetForm, setTargetForm] = useState({
+    year: String(targets.year),
+    beNeukunden: String(targets.beNeukunden),
+    anzNeukunden: String(targets.anzNeukunden),
+    beTotal: String(targets.beTotal),
+  });
+  const [selPlayer, setSelPlayer] = useState("");
+  const [selMonth, setSelMonth] = useState(new Date().getMonth());
+  const [entryForm, setEntryForm] = useState({ beNeukunden: "", anzNeukunden: "", beTotal: "" });
+
+  useEffect(() => {
+    if (!selPlayer) return;
+    const data = monthlyData[selPlayer]?.[selMonth];
+    if (data) {
+      setEntryForm({ beNeukunden: String(data.beNeukunden), anzNeukunden: String(data.anzNeukunden), beTotal: String(data.beTotal) });
+    } else {
+      setEntryForm({ beNeukunden: "", anzNeukunden: "", beTotal: "" });
+    }
+  }, [selPlayer, selMonth, monthlyData]);
+
+  function saveTargets() {
+    setTargets({
+      year: Number(targetForm.year),
+      beNeukunden: Number(targetForm.beNeukunden) || 0,
+      anzNeukunden: Number(targetForm.anzNeukunden) || 0,
+      beTotal: Number(targetForm.beTotal) || 0,
+    });
+    onToast("Jahresziele gespeichert!");
+  }
+
+  function saveMonthData() {
+    if (!selPlayer) return;
+    setMonthlyData(prev => ({
+      ...prev,
+      [selPlayer]: {
+        ...(prev[selPlayer] || {}),
+        [selMonth]: {
+          beNeukunden: Number(entryForm.beNeukunden) || 0,
+          anzNeukunden: Number(entryForm.anzNeukunden) || 0,
+          beTotal: Number(entryForm.beTotal) || 0,
+        }
+      }
+    }));
+    const player = team.find(p => p.id === Number(selPlayer));
+    onToast(`Ist-Werte ${MONTHS[selMonth]} für ${player?.name || ""} gespeichert!`);
+  }
+
+  const thStyle = { padding: "8px 6px", fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.06)" };
+  const tdStyle = { padding: "8px 6px", fontSize: 12, fontFamily: "'DM Mono',monospace", color: "#cbd5e1", borderBottom: "1px solid rgba(255,255,255,0.04)" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Yearly targets */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24 }}>
+        <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 20, fontSize: 16 }}>Jahresziele definieren</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14 }}>
+          <Field label="Jahr">
+            <input type="number" style={inputStyle} value={targetForm.year} onChange={e => setTargetForm(f => ({ ...f, year: e.target.value }))} />
+          </Field>
+          <Field label="BE Neukunden (CHF)">
+            <input type="number" style={inputStyle} value={targetForm.beNeukunden} onChange={e => setTargetForm(f => ({ ...f, beNeukunden: e.target.value }))} placeholder="500000" />
+          </Field>
+          <Field label="Anz. Neukunden">
+            <input type="number" style={inputStyle} value={targetForm.anzNeukunden} onChange={e => setTargetForm(f => ({ ...f, anzNeukunden: e.target.value }))} placeholder="50" />
+          </Field>
+          <Field label="BE Total (CHF)">
+            <input type="number" style={inputStyle} value={targetForm.beTotal} onChange={e => setTargetForm(f => ({ ...f, beTotal: e.target.value }))} placeholder="2000000" />
+          </Field>
+        </div>
+        <button onClick={saveTargets} style={{ marginTop: 16, width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>Ziele speichern ✓</button>
+      </div>
+
+      {/* Monthly data entry */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24 }}>
+        <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 20, fontSize: 16 }}>Monatliche Ist-Werte erfassen</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <Field label="Spieler">
+            <select value={selPlayer} onChange={e => setSelPlayer(e.target.value)} style={selectStyle}>
+              <option value="">— wählen —</option>
+              {team.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Monat">
+            <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} style={selectStyle}>
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m} {targets.year}</option>)}
+            </select>
+          </Field>
+        </div>
+        {selPlayer && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14, marginBottom: 14 }}>
+              <Field label="BE Neukunden (CHF)">
+                <input type="number" style={inputStyle} value={entryForm.beNeukunden} onChange={e => setEntryForm(f => ({ ...f, beNeukunden: e.target.value }))} placeholder="0" />
+              </Field>
+              <Field label="Anz. Neukunden">
+                <input type="number" style={inputStyle} value={entryForm.anzNeukunden} onChange={e => setEntryForm(f => ({ ...f, anzNeukunden: e.target.value }))} placeholder="0" />
+              </Field>
+              <Field label="BE Total (CHF)">
+                <input type="number" style={inputStyle} value={entryForm.beTotal} onChange={e => setEntryForm(f => ({ ...f, beTotal: e.target.value }))} placeholder="0" />
+              </Field>
+            </div>
+            <button onClick={saveMonthData} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>Ist-Werte speichern ✓</button>
+          </>
+        )}
+      </div>
+
+      {/* Overview table per player */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 24, overflowX: "auto" }}>
+        <div style={{ fontWeight: 700, color: "#f1f5f9", marginBottom: 20, fontSize: 16 }}>Übersicht {targets.year}</div>
+        {team.map(p => {
+          const pData = monthlyData[p.id] || {};
+          const hasData = Object.keys(pData).length > 0;
+          return (
+            <div key={p.id} style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <Avatar initials={p.avatar} size={32} />
+                <span style={{ fontWeight: 700, color: "#f1f5f9", fontSize: 14 }}>{p.name}</span>
+              </div>
+              {!hasData ? (
+                <div style={{ fontSize: 12, color: "#334155", padding: "8px 0" }}>Noch keine Daten erfasst</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>KPI</th>
+                        {MONTHS.map((m, i) => <th key={i} style={{ ...thStyle, textAlign: "right", color: pData[i] ? "#64748b" : "#1e293b" }}>{m}</th>)}
+                        <th style={{ ...thStyle, textAlign: "right", color: "#a5b4fc" }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TARGET_CATS.map(c => {
+                        let total = 0;
+                        return (
+                          <tr key={c.key}>
+                            <td style={{ ...tdStyle, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: c.color, fontSize: 12 }}>{c.label}</td>
+                            {MONTHS.map((_, i) => {
+                              const val = pData[i]?.[c.key] || 0;
+                              total += val;
+                              return <td key={i} style={{ ...tdStyle, textAlign: "right", color: val > 0 ? "#cbd5e1" : "#1e293b" }}>
+                                {val > 0 ? (c.unit === "CHF" ? val.toLocaleString("de-CH") : val) : "–"}
+                              </td>;
+                            })}
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: c.color }}>
+                              {c.unit === "CHF" ? total.toLocaleString("de-CH") : total}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── ROOT ────────────────────────────────────────────────────────────────────
 export default function SalesGamificationApp() {
   const [activeTab,  setActiveTab]  = useState(0);
@@ -802,6 +1078,8 @@ export default function SalesGamificationApp() {
   const [team,       setTeam]       = useState(SEED_TEAM);
   const [challenges, setChallenges] = useState(SEED_CHALLENGES);
   const [allBadges,  setAllBadges]  = useState(SEED_BADGES);
+  const [targets,    setTargets]    = useState(SEED_TARGETS);
+  const [monthlyData, setMonthlyData] = useState({});
   const [adminOpen,  setAdminOpen]  = useState(false);
   const [toast,      setToast]      = useState(null);
 
@@ -878,13 +1156,14 @@ export default function SalesGamificationApp() {
       {/* Content */}
       <div style={{ maxWidth: 960, margin: "32px auto 0", padding: "0 24px", animation: "fadeIn 0.4s ease" }}>
         {adminOpen ? (
-          <AdminPanel team={team} setTeam={setTeam} challenges={challenges} setChallenges={setChallenges} allBadges={allBadges} setAllBadges={setAllBadges} onToast={setToast} />
+          <AdminPanel team={team} setTeam={setTeam} challenges={challenges} setChallenges={setChallenges} allBadges={allBadges} setAllBadges={setAllBadges} targets={targets} setTargets={setTargets} monthlyData={monthlyData} setMonthlyData={setMonthlyData} onToast={setToast} />
         ) : (
           <>
             {activeTab === 0 && <LeaderboardTab team={team} sortKey={sortKey} setSortKey={setSortKey} allBadges={allBadges} />}
             {activeTab === 1 && <ChallengesTab challenges={challenges} />}
             {activeTab === 2 && <AchievementsTab team={team} allBadges={allBadges} />}
             {activeTab === 3 && <ProfileTab team={team} allBadges={allBadges} />}
+            {activeTab === 4 && <TargetsTab team={team} targets={targets} monthlyData={monthlyData} />}
           </>
         )}
       </div>
