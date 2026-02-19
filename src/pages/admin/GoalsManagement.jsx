@@ -31,6 +31,7 @@ export default function GoalsManagement() {
   const [monthAnzNeukunden, setMonthAnzNeukunden] = useState('')
   const [monthBeTotal, setMonthBeTotal] = useState('')
   const [savingActual, setSavingActual] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
 
   // Übersicht-Spieler
   const [overviewPlayerId, setOverviewPlayerId] = useState('')
@@ -161,6 +162,55 @@ export default function GoalsManagement() {
     }
   }
 
+  // Alle Spieler-Punkte aus Monatswerten neu berechnen
+  async function handleRecalculateAll() {
+    setRecalculating(true)
+    try {
+      const { data: allActuals, error: fetchErr } = await supabase
+        .from('monthly_actuals')
+        .select('player_id, be_total, anz_neukunden, be_neukunden')
+        .eq('year', year)
+      if (fetchErr) throw fetchErr
+
+      // Pro Spieler aggregieren
+      const playerTotals = {}
+      for (const row of (allActuals || [])) {
+        if (!playerTotals[row.player_id]) {
+          playerTotals[row.player_id] = { revenue: 0, new_customers: 0, be_neukunden: 0 }
+        }
+        playerTotals[row.player_id].revenue += Number(row.be_total) || 0
+        playerTotals[row.player_id].new_customers += Number(row.anz_neukunden) || 0
+        playerTotals[row.player_id].be_neukunden += Number(row.be_neukunden) || 0
+      }
+
+      // Jeden Spieler updaten (auch Spieler ohne Monatswerte auf 0 setzen)
+      for (const player of players) {
+        const totals = playerTotals[player.id] || { revenue: 0, new_customers: 0, be_neukunden: 0 }
+        const points = calculatePoints(totals.revenue, totals.new_customers, totals.be_neukunden)
+        const level = calculateLevel(points)
+
+        const { error: updateErr } = await supabase
+          .from('players')
+          .update({
+            revenue: totals.revenue,
+            new_customers: totals.new_customers,
+            be_neukunden: totals.be_neukunden,
+            points,
+            level,
+          })
+          .eq('id', player.id)
+        if (updateErr) throw updateErr
+      }
+
+      showToast(`Punkte für alle ${players.length} Spieler neu berechnet.`)
+    } catch (err) {
+      console.error(err)
+      showToast('Fehler beim Neuberechnen: ' + err.message)
+    } finally {
+      setRecalculating(false)
+    }
+  }
+
   // F-ZV-07 / F-ZV-08: Kumulative Werte berechnen
   const overviewPlayer = useMemo(() => {
     if (!overviewPlayerId || !monthlyActuals) return null
@@ -229,18 +279,27 @@ export default function GoalsManagement() {
             Jahresziele definieren und Monatswerte pro Spieler erfassen.
           </p>
         </div>
-        <Field>
-          <select
-            className="form-select"
-            value={year}
-            onChange={e => setYear(Number(e.target.value))}
-            style={{ width: 120 }}
+        <div className="flex items-center gap-8">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleRecalculateAll}
+            disabled={recalculating || players.length === 0}
           >
-            {[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </Field>
+            {recalculating ? 'Berechne...' : 'Punkte neu berechnen'}
+          </button>
+          <Field>
+            <select
+              className="form-select"
+              value={year}
+              onChange={e => setYear(Number(e.target.value))}
+              style={{ width: 120 }}
+            >
+              {[CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
       </div>
 
       <div className="grid-2">
