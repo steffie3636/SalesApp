@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { usePlayers, useAnnualGoals, useMonthlyActuals } from '../../lib/useData'
 import { formatCHF, formatNumber, getMonthName, getMonthShort } from '../../lib/format'
-import { calculatePlayerShare, calculateAchievementRate } from '../../lib/points'
+import { calculatePlayerShare, calculateAchievementRate, calculatePoints, calculateLevel } from '../../lib/points'
 import { useToast } from '../../context/ToastContext'
 import Avatar from '../../components/Avatar'
 import Field from '../../components/Field'
@@ -118,6 +118,38 @@ export default function GoalsManagement() {
         .from('monthly_actuals')
         .upsert(payload, { onConflict: 'player_id,year,month' })
       if (error) throw error
+
+      // Spieler-Totals aus allen Monatswerten neu berechnen
+      const { data: allActuals, error: fetchErr } = await supabase
+        .from('monthly_actuals')
+        .select('be_total, anz_neukunden, be_neukunden')
+        .eq('player_id', selectedPlayerId)
+        .eq('year', year)
+      if (fetchErr) throw fetchErr
+
+      const totals = (allActuals || []).reduce(
+        (acc, row) => ({
+          revenue: acc.revenue + (Number(row.be_total) || 0),
+          new_customers: acc.new_customers + (Number(row.anz_neukunden) || 0),
+          be_neukunden: acc.be_neukunden + (Number(row.be_neukunden) || 0),
+        }),
+        { revenue: 0, new_customers: 0, be_neukunden: 0 }
+      )
+
+      const points = calculatePoints(totals.revenue, totals.new_customers, totals.be_neukunden)
+      const level = calculateLevel(points)
+
+      const { error: updateErr } = await supabase
+        .from('players')
+        .update({
+          revenue: totals.revenue,
+          new_customers: totals.new_customers,
+          be_neukunden: totals.be_neukunden,
+          points,
+          level,
+        })
+        .eq('id', selectedPlayerId)
+      if (updateErr) throw updateErr
 
       showToast(`Monatswerte ${getMonthName(selectedMonth)} gespeichert.`)
       refetchActuals()
