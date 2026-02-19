@@ -15,14 +15,14 @@ export default function DealEntry() {
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [revenue, setRevenue] = useState('')
   const [newCustomers, setNewCustomers] = useState('')
-  const [calls, setCalls] = useState('')
+  const [beNeukunden, setBeNeukunden] = useState('')
   const [saving, setSaving] = useState(false)
 
   // F-DE-03: Live-Vorschau der Punkte
   const revenueNum = Number(revenue) || 0
   const newCustomersNum = Number(newCustomers) || 0
-  const callsNum = Number(calls) || 0
-  const previewPoints = calculatePoints(revenueNum, newCustomersNum, callsNum)
+  const beNeukundenNum = Number(beNeukunden) || 0
+  const previewPoints = calculatePoints(revenueNum, newCustomersNum, beNeukundenNum)
 
   const selectedPlayer = useMemo(
     () => players.find(p => p.id === selectedPlayerId),
@@ -35,7 +35,7 @@ export default function DealEntry() {
       showToast('Bitte einen Spieler auswählen.')
       return
     }
-    if (revenueNum === 0 && newCustomersNum === 0 && callsNum === 0) {
+    if (revenueNum === 0 && newCustomersNum === 0 && beNeukundenNum === 0) {
       showToast('Bitte mindestens einen Wert eingeben.')
       return
     }
@@ -50,7 +50,7 @@ export default function DealEntry() {
         player_id: selectedPlayerId,
         revenue: revenueNum,
         new_customers: newCustomersNum,
-        calls: callsNum,
+        be_neukunden: beNeukundenNum,
         points_earned: previewPoints,
       })
       if (logError) throw logError
@@ -58,8 +58,8 @@ export default function DealEntry() {
       // Spieler-Totale aktualisieren
       const newRevenue = (player.revenue || 0) + revenueNum
       const newNewCustomers = (player.new_customers || 0) + newCustomersNum
-      const newCalls = (player.calls || 0) + callsNum
-      const newPoints = calculatePoints(newRevenue, newNewCustomers, newCalls)
+      const newBeNeukunden = (player.be_neukunden || 0) + beNeukundenNum
+      const newPoints = calculatePoints(newRevenue, newNewCustomers, newBeNeukunden)
       const newLevel = calculateLevel(newPoints)
 
       const { error: updateError } = await supabase
@@ -67,7 +67,7 @@ export default function DealEntry() {
         .update({
           revenue: newRevenue,
           new_customers: newNewCustomers,
-          calls: newCalls,
+          be_neukunden: newBeNeukunden,
           points: newPoints,
           level: newLevel,
         })
@@ -79,7 +79,7 @@ export default function DealEntry() {
       // Felder zurücksetzen
       setRevenue('')
       setNewCustomers('')
-      setCalls('')
+      setBeNeukunden('')
 
       // Daten neu laden
       refetchPlayers()
@@ -97,7 +97,7 @@ export default function DealEntry() {
       <div>
         <h2>Deal-Erfassung</h2>
         <p className="text-sm text-muted mt-8">
-          Umsätze, Neukunden und Anrufe für Spieler erfassen.
+          BE Total, Neukunden und BE Neukunden für Spieler erfassen.
         </p>
       </div>
 
@@ -123,7 +123,7 @@ export default function DealEntry() {
           </Field>
 
           {/* F-DE-02: Eingabefelder */}
-          <Field label="Umsatz (CHF)">
+          <Field label="BE Total (CHF)">
             <input
               className="form-input"
               type="number"
@@ -135,7 +135,7 @@ export default function DealEntry() {
             />
           </Field>
 
-          <Field label="Neukunden">
+          <Field label="Anz. Neukunden">
             <input
               className="form-input"
               type="number"
@@ -147,15 +147,15 @@ export default function DealEntry() {
             />
           </Field>
 
-          <Field label="Anrufe">
+          <Field label="BE Neukunden (CHF)">
             <input
               className="form-input"
               type="number"
               min="0"
-              step="1"
-              placeholder="0"
-              value={calls}
-              onChange={e => setCalls(e.target.value)}
+              step="0.01"
+              placeholder="0.00"
+              value={beNeukunden}
+              onChange={e => setBeNeukunden(e.target.value)}
             />
           </Field>
 
@@ -178,7 +178,7 @@ export default function DealEntry() {
               +{formatNumber(previewPoints)}
             </div>
             <div className="font-mono text-sm" style={{ color: 'var(--text-muted)', marginTop: 6 }}>
-              CHF {formatNumber(revenueNum)} &times;0.02 + Neukunde {newCustomersNum} &times;150 + Anruf {callsNum} &times;5
+              BE Total {formatCHF(revenueNum)} &times;0.02 + NK {newCustomersNum} &times;150 + BE NK {formatCHF(beNeukundenNum)} &times;0.02
             </div>
           </div>
 
@@ -236,7 +236,7 @@ export default function DealEntry() {
                       </span>
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {formatCHF(entry.revenue || 0)}, {entry.new_customers || 0} NK, {entry.calls || 0} Anrufe
+                      BE Total {formatCHF(entry.revenue || 0)}, {entry.new_customers || 0} NK, BE NK {formatCHF(entry.be_neukunden || 0)}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                       {formatTimestamp(entry.created_at)}

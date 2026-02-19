@@ -9,8 +9,8 @@ import ProgressBar from '../components/ProgressBar'
 
 const SORT_OPTIONS = [
   { key: 'points', label: 'Punkte', format: (v) => formatNumber(v), color: 'var(--color-primary)' },
-  { key: 'revenue', label: 'Umsatz', format: (v) => formatCHF(v), color: 'var(--color-mint)' },
-  { key: 'new_customers', label: 'Neukunden', format: (v) => formatNumber(v), color: 'var(--color-coral)' },
+  { key: 'revenue', label: 'BE Total', format: (v) => formatCHF(v), color: 'var(--color-mint)' },
+  { key: 'new_customers', label: 'Anz. Neukunden', format: (v) => formatNumber(v), color: 'var(--color-coral)' },
 ]
 
 export default function Leaderboard() {

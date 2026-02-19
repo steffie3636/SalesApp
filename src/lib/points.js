@@ -1,6 +1,6 @@
-// Punkteberechnung: (Umsatz × 0.02) + (Neukunden × 150) + (Anrufe × 5)
-export function calculatePoints(revenue = 0, newCustomers = 0, calls = 0) {
-  return Math.round((revenue * 0.02) + (newCustomers * 150) + (calls * 5))
+// Punkteberechnung: (BE Total × 0.02) + (Anz. Neukunden × 150) + (BE Neukunden × 0.02)
+export function calculatePoints(revenue = 0, newCustomers = 0, beNeukunden = 0) {
+  return Math.round((revenue * 0.02) + (newCustomers * 150) + (beNeukunden * 0.02))
 }
 
 // Level-Berechnung: max(1, floor(Punkte / 1000) + 1)

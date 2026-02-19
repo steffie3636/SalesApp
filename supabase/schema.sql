@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS players (
   avatar_url TEXT,
   revenue NUMERIC DEFAULT 0,
   new_customers INTEGER DEFAULT 0,
-  calls INTEGER DEFAULT 0,
+  be_neukunden NUMERIC DEFAULT 0,
   points INTEGER DEFAULT 0,
   level INTEGER DEFAULT 1,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
   player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   revenue NUMERIC DEFAULT 0,
   new_customers INTEGER DEFAULT 0,
-  calls INTEGER DEFAULT 0,
+  be_neukunden NUMERIC DEFAULT 0,
   points_earned INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );

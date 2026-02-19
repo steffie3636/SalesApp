@@ -88,25 +88,25 @@ export default function Profile() {
   // KPI-Ziele (beispielhafte Zielwerte)
   const kpiGoals = [
     {
-      label: 'Umsatz',
+      label: 'BE Total',
       current: player.revenue || 0,
       target: player.revenue_goal || 100000,
-      color: 'var(--color-mint)',
+      color: 'var(--color-primary)',
       format: formatCHF,
     },
     {
-      label: 'Neukunden',
+      label: 'Anz. Neukunden',
       current: player.new_customers || 0,
       target: player.new_customers_goal || 20,
       color: 'var(--color-coral)',
       format: formatNumber,
     },
     {
-      label: 'Aktivitaeten',
-      current: player.calls || 0,
-      target: player.calls_goal || 200,
-      color: 'var(--color-violet)',
-      format: formatNumber,
+      label: 'BE Neukunden',
+      current: player.be_neukunden || 0,
+      target: player.be_neukunden_goal || 50000,
+      color: 'var(--color-mint)',
+      format: formatCHF,
     },
   ]
 
@@ -237,23 +237,24 @@ export default function Profile() {
       {/* Statistik-Karten */}
       <div className="grid-4">
         <StatCard
-          label="Umsatz"
+          label="BE Total"
           value={player.revenue || 0}
           prefix="CHF "
           icon="💰"
-          color="var(--color-mint)"
+          color="var(--color-primary)"
         />
         <StatCard
-          label="Neukunden"
+          label="Anz. Neukunden"
           value={player.new_customers || 0}
           icon="👥"
           color="var(--color-coral)"
         />
         <StatCard
-          label="Anrufe"
-          value={player.calls || 0}
-          icon="📞"
-          color="var(--color-sky)"
+          label="BE Neukunden"
+          value={player.be_neukunden || 0}
+          prefix="CHF "
+          icon="🆕"
+          color="var(--color-mint)"
         />
         <StatCard
           label="Punkte"
