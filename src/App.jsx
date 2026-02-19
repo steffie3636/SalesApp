@@ -6,7 +6,7 @@ import Leaderboard from './pages/Leaderboard'
 import Achievements from './pages/Achievements'
 import Profile from './pages/Profile'
 import GoalsDashboard from './pages/GoalsDashboard'
-import DealEntry from './pages/admin/DealEntry'
+
 import PlayerManagement from './pages/admin/PlayerManagement'
 import ChallengeManagement from './pages/admin/ChallengeManagement'
 import BadgeManagement from './pages/admin/BadgeManagement'
@@ -21,7 +21,6 @@ const NAV_ITEMS = [
 ]
 
 const ADMIN_NAV_ITEMS = [
-  { path: '/admin/deals', label: 'Deal erfassen', icon: '💰' },
   { path: '/admin/players', label: 'Spieler', icon: '👥' },
   { path: '/admin/challenges', label: 'Challenges', icon: '🎯' },
   { path: '/admin/badges', label: 'Badges', icon: '🏅' },
@@ -112,7 +111,6 @@ function Layout() {
             <Route path="/profile" element={<Profile />} />
             {isAdmin && (
               <>
-                <Route path="/admin/deals" element={<DealEntry />} />
                 <Route path="/admin/players" element={<PlayerManagement />} />
                 <Route path="/admin/challenges" element={<ChallengeManagement />} />
                 <Route path="/admin/badges" element={<BadgeManagement />} />
