@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 're
 import { useAuth } from './context/AuthContext'
 import LoginScreen from './components/LoginScreen'
 import Leaderboard from './pages/Leaderboard'
-import Challenges from './pages/Challenges'
+// import Challenges from './pages/Challenges'
 import Achievements from './pages/Achievements'
 import Profile from './pages/Profile'
 import GoalsDashboard from './pages/GoalsDashboard'
@@ -15,7 +15,6 @@ import GoalsManagement from './pages/admin/GoalsManagement'
 // Navigation items
 const NAV_ITEMS = [
   { path: '/', label: 'Rangliste', icon: '🏆' },
-  { path: '/challenges', label: 'Challenges', icon: '🎯' },
   { path: '/achievements', label: 'Auszeichnungen', icon: '🏅' },
   { path: '/goals', label: 'Jahresziele', icon: '📊' },
   { path: '/profile', label: 'Mein Profil', icon: '👤' },
@@ -108,7 +107,6 @@ function Layout() {
         <main className="app-content">
           <Routes>
             <Route path="/" element={<Leaderboard />} />
-            <Route path="/challenges" element={<Challenges />} />
             <Route path="/achievements" element={<Achievements />} />
             <Route path="/goals" element={<GoalsDashboard />} />
             <Route path="/profile" element={<Profile />} />
