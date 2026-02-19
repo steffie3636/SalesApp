@@ -180,3 +180,17 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER monthly_actuals_updated_at
   BEFORE UPDATE ON monthly_actuals
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Automatically create a profile when a new user signs up
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, role)
+  VALUES (NEW.id, 'player');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();

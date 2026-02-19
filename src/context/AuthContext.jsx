@@ -28,11 +28,14 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchProfile(userId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*, player:players(*)')
       .eq('id', userId)
       .single()
+    if (error) {
+      console.warn('Profil konnte nicht geladen werden:', error.message)
+    }
     setProfile(data)
     setLoading(false)
   }
