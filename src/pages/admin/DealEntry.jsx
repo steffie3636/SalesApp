@@ -74,6 +74,31 @@ export default function DealEntry() {
         .eq('id', selectedPlayerId)
       if (updateError) throw updateError
 
+      // Monatswerte (monthly_actuals) für Jahresziele aktualisieren
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth() + 1
+
+      const { data: existingActual } = await supabase
+        .from('monthly_actuals')
+        .select('*')
+        .eq('player_id', selectedPlayerId)
+        .eq('year', currentYear)
+        .eq('month', currentMonth)
+        .single()
+
+      const { error: actualError } = await supabase
+        .from('monthly_actuals')
+        .upsert({
+          player_id: selectedPlayerId,
+          year: currentYear,
+          month: currentMonth,
+          be_total: (existingActual?.be_total || 0) + revenueNum,
+          anz_neukunden: (existingActual?.anz_neukunden || 0) + newCustomersNum,
+          be_neukunden: (existingActual?.be_neukunden || 0) + beNeukundenNum,
+        }, { onConflict: 'player_id,year,month' })
+      if (actualError) throw actualError
+
       showToast(`${player.name}: +${formatNumber(previewPoints)} Punkte gespeichert!`)
 
       // Felder zurücksetzen
