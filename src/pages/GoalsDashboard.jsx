@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useAnnualGoals, useMonthlyActuals, usePlayers } from '../lib/useData'
 import { formatNumber, formatCHF, formatPercent } from '../lib/format'
-import { calculatePlayerShare, calculateAchievementRate } from '../lib/points'
+import { calculatePlayerShare, calculateAchievementRate, rateColor } from '../lib/points'
 import ProgressBar from '../components/ProgressBar'
 import Avatar from '../components/Avatar'
 
@@ -35,17 +35,6 @@ const KPI_CONFIG = [
   },
 ]
 
-function getColorByRate(rate) {
-  if (rate >= 100) return 'var(--color-mint)'
-  if (rate >= 50) return 'var(--color-yellow)'
-  return 'var(--color-red)'
-}
-
-function getColorClass(rate) {
-  if (rate >= 100) return { color: 'var(--color-mint)' }
-  if (rate >= 50) return { color: 'var(--color-yellow)' }
-  return { color: 'var(--color-red)' }
-}
 
 export default function GoalsDashboard() {
   const [year, setYear] = useState(CURRENT_YEAR)
@@ -152,7 +141,7 @@ export default function GoalsDashboard() {
               const goal = annualGoals[kpi.goalField] || 0
               const actual = teamTotals[kpi.key] || 0
               const rate = calculateAchievementRate(actual, goal)
-              const barColor = getColorByRate(rate)
+              const barColor = rateColor(rate)
 
               return (
                 <div key={kpi.key}>
@@ -160,7 +149,7 @@ export default function GoalsDashboard() {
                     <span style={{ fontWeight: 700, fontSize: 16 }}>{kpi.label}</span>
                     <span
                       className="font-mono font-bold"
-                      style={{ fontSize: 16, ...getColorClass(rate) }}
+                      style={{ fontSize: 16, color: rateColor(rate) }}
                     >
                       {formatPercent(rate)}
                     </span>
@@ -255,7 +244,7 @@ export default function GoalsDashboard() {
                           style={{
                             textAlign: 'right',
                             fontSize: 14,
-                            ...getColorClass(rate),
+                            color: rateColor(rate),
                           }}
                         >
                           {formatPercent(rate)}

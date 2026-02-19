@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 're
 import { useAuth } from './context/AuthContext'
 import LoginScreen from './components/LoginScreen'
 import Leaderboard from './pages/Leaderboard'
-// import Challenges from './pages/Challenges'
 import Achievements from './pages/Achievements'
 import Profile from './pages/Profile'
 import GoalsDashboard from './pages/GoalsDashboard'

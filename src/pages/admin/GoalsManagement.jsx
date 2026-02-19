@@ -2,9 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { usePlayers, useAnnualGoals, useMonthlyActuals } from '../../lib/useData'
 import { formatCHF, formatNumber, getMonthName, getMonthShort } from '../../lib/format'
-import { calculatePlayerShare, calculateAchievementRate, calculatePoints, calculateLevel } from '../../lib/points'
+import { calculatePlayerShare, calculateAchievementRate, calculatePoints, calculateLevel, rateColor } from '../../lib/points'
 import { useToast } from '../../context/ToastContext'
-import Avatar from '../../components/Avatar'
 import Field from '../../components/Field'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -97,6 +96,34 @@ export default function GoalsManagement() {
     }
   }
 
+  // Monatswerte aggregieren und Spieler-Totals in DB aktualisieren
+  async function recalculatePlayer(playerId) {
+    const { data: actuals, error: fetchErr } = await supabase
+      .from('monthly_actuals')
+      .select('be_total, anz_neukunden, be_neukunden')
+      .eq('player_id', playerId)
+      .eq('year', year)
+    if (fetchErr) throw fetchErr
+
+    const totals = (actuals || []).reduce(
+      (acc, row) => ({
+        revenue: acc.revenue + (Number(row.be_total) || 0),
+        new_customers: acc.new_customers + (Number(row.anz_neukunden) || 0),
+        be_neukunden: acc.be_neukunden + (Number(row.be_neukunden) || 0),
+      }),
+      { revenue: 0, new_customers: 0, be_neukunden: 0 }
+    )
+
+    const points = calculatePoints(totals.revenue, totals.new_customers, totals.be_neukunden)
+    const level = calculateLevel(points)
+
+    const { error: updateErr } = await supabase
+      .from('players')
+      .update({ revenue: totals.revenue, new_customers: totals.new_customers, be_neukunden: totals.be_neukunden, points, level })
+      .eq('id', playerId)
+    if (updateErr) throw updateErr
+  }
+
   // F-ZV-03 / F-ZV-04: Monatswerte speichern (Upsert)
   async function handleSaveActual() {
     if (!selectedPlayerId) {
@@ -106,51 +133,19 @@ export default function GoalsManagement() {
 
     setSavingActual(true)
     try {
-      const payload = {
-        player_id: selectedPlayerId,
-        year,
-        month: selectedMonth,
-        be_neukunden: Number(monthBeNeukunden) || 0,
-        anz_neukunden: Number(monthAnzNeukunden) || 0,
-        be_total: Number(monthBeTotal) || 0,
-      }
-
       const { error } = await supabase
         .from('monthly_actuals')
-        .upsert(payload, { onConflict: 'player_id,year,month' })
+        .upsert({
+          player_id: selectedPlayerId,
+          year,
+          month: selectedMonth,
+          be_neukunden: Number(monthBeNeukunden) || 0,
+          anz_neukunden: Number(monthAnzNeukunden) || 0,
+          be_total: Number(monthBeTotal) || 0,
+        }, { onConflict: 'player_id,year,month' })
       if (error) throw error
 
-      // Spieler-Totals aus allen Monatswerten neu berechnen
-      const { data: allActuals, error: fetchErr } = await supabase
-        .from('monthly_actuals')
-        .select('be_total, anz_neukunden, be_neukunden')
-        .eq('player_id', selectedPlayerId)
-        .eq('year', year)
-      if (fetchErr) throw fetchErr
-
-      const totals = (allActuals || []).reduce(
-        (acc, row) => ({
-          revenue: acc.revenue + (Number(row.be_total) || 0),
-          new_customers: acc.new_customers + (Number(row.anz_neukunden) || 0),
-          be_neukunden: acc.be_neukunden + (Number(row.be_neukunden) || 0),
-        }),
-        { revenue: 0, new_customers: 0, be_neukunden: 0 }
-      )
-
-      const points = calculatePoints(totals.revenue, totals.new_customers, totals.be_neukunden)
-      const level = calculateLevel(points)
-
-      const { error: updateErr } = await supabase
-        .from('players')
-        .update({
-          revenue: totals.revenue,
-          new_customers: totals.new_customers,
-          be_neukunden: totals.be_neukunden,
-          points,
-          level,
-        })
-        .eq('id', selectedPlayerId)
-      if (updateErr) throw updateErr
+      await recalculatePlayer(selectedPlayerId)
 
       showToast(`Monatswerte ${getMonthName(selectedMonth)} gespeichert.`)
       refetchActuals()
@@ -166,42 +161,9 @@ export default function GoalsManagement() {
   async function handleRecalculateAll() {
     setRecalculating(true)
     try {
-      const { data: allActuals, error: fetchErr } = await supabase
-        .from('monthly_actuals')
-        .select('player_id, be_total, anz_neukunden, be_neukunden')
-        .eq('year', year)
-      if (fetchErr) throw fetchErr
-
-      // Pro Spieler aggregieren
-      const playerTotals = {}
-      for (const row of (allActuals || [])) {
-        if (!playerTotals[row.player_id]) {
-          playerTotals[row.player_id] = { revenue: 0, new_customers: 0, be_neukunden: 0 }
-        }
-        playerTotals[row.player_id].revenue += Number(row.be_total) || 0
-        playerTotals[row.player_id].new_customers += Number(row.anz_neukunden) || 0
-        playerTotals[row.player_id].be_neukunden += Number(row.be_neukunden) || 0
-      }
-
-      // Jeden Spieler updaten (auch Spieler ohne Monatswerte auf 0 setzen)
       for (const player of players) {
-        const totals = playerTotals[player.id] || { revenue: 0, new_customers: 0, be_neukunden: 0 }
-        const points = calculatePoints(totals.revenue, totals.new_customers, totals.be_neukunden)
-        const level = calculateLevel(points)
-
-        const { error: updateErr } = await supabase
-          .from('players')
-          .update({
-            revenue: totals.revenue,
-            new_customers: totals.new_customers,
-            be_neukunden: totals.be_neukunden,
-            points,
-            level,
-          })
-          .eq('id', player.id)
-        if (updateErr) throw updateErr
+        await recalculatePlayer(player.id)
       }
-
       showToast(`Punkte für alle ${players.length} Spieler neu berechnet.`)
     } catch (err) {
       console.error(err)
@@ -212,11 +174,6 @@ export default function GoalsManagement() {
   }
 
   // F-ZV-07 / F-ZV-08: Kumulative Werte berechnen
-  const overviewPlayer = useMemo(() => {
-    if (!overviewPlayerId || !monthlyActuals) return null
-    return players.find(p => p.id === overviewPlayerId)
-  }, [overviewPlayerId, players, monthlyActuals])
-
   const overviewData = useMemo(() => {
     if (!overviewPlayerId || !monthlyActuals) return []
     const playerActuals = monthlyActuals.filter(a => a.player_id === overviewPlayerId)
@@ -247,26 +204,20 @@ export default function GoalsManagement() {
     })
   }, [overviewPlayerId, monthlyActuals])
 
-  // F-ZV-10: Spieler-Anteil am Teamziel
+  // F-ZV-10 / F-ZV-11: KPI-Konfiguration für Übersichtstabellen
   const playerCount = players.length || 1
-  const playerGoalBeNeukunden = calculatePlayerShare(Number(goalBeNeukunden) || 0, playerCount)
-  const playerGoalAnzNeukunden = calculatePlayerShare(Number(goalAnzNeukunden) || 0, playerCount)
-  const playerGoalBeTotal = calculatePlayerShare(Number(goalBeTotal) || 0, playerCount)
+  const lastRow = overviewData.length > 0 ? overviewData[overviewData.length - 1] : null
 
-  // F-ZV-11: Erreichungsgrad
-  const totalCumBeNeukunden = overviewData.length > 0 ? overviewData[overviewData.length - 1].cumBeNeukunden : 0
-  const totalCumAnzNeukunden = overviewData.length > 0 ? overviewData[overviewData.length - 1].cumAnzNeukunden : 0
-  const totalCumBeTotal = overviewData.length > 0 ? overviewData[overviewData.length - 1].cumBeTotal : 0
-
-  const rateBeNeukunden = calculateAchievementRate(totalCumBeNeukunden, playerGoalBeNeukunden)
-  const rateAnzNeukunden = calculateAchievementRate(totalCumAnzNeukunden, playerGoalAnzNeukunden)
-  const rateBeTotal = calculateAchievementRate(totalCumBeTotal, playerGoalBeTotal)
-
-  function rateColor(rate) {
-    if (rate >= 100) return 'var(--color-mint)'
-    if (rate >= 50) return 'var(--color-yellow)'
-    return 'var(--color-red)'
-  }
+  const kpiOverviewConfig = [
+    { label: 'BE Neukunden (CHF)', cumKey: 'cumBeNeukunden', deltaKey: 'deltaBeNeukunden', goalValue: Number(goalBeNeukunden) || 0 },
+    { label: 'Anz. Neukunden', cumKey: 'cumAnzNeukunden', deltaKey: 'deltaAnzNeukunden', goalValue: Number(goalAnzNeukunden) || 0 },
+    { label: 'BE Total (CHF)', cumKey: 'cumBeTotal', deltaKey: 'deltaBeTotal', goalValue: Number(goalBeTotal) || 0 },
+  ].map(kpi => {
+    const playerGoal = calculatePlayerShare(kpi.goalValue, playerCount)
+    const totalCum = lastRow?.[kpi.cumKey] || 0
+    const rate = calculateAchievementRate(totalCum, playerGoal)
+    return { ...kpi, playerGoal, rate }
+  })
 
   const loading = playersLoading || goalLoading || actualsLoading
 
@@ -365,9 +316,9 @@ export default function GoalsManagement() {
               <div style={{ fontWeight: 600, marginBottom: 4 }}>
                 Ziel pro Spieler ({players.length} Spieler):
               </div>
-              <div>BE Neukunden: {formatCHF(playerGoalBeNeukunden)}</div>
-              <div>Anz. Neukunden: {formatNumber(Math.round(playerGoalAnzNeukunden))}</div>
-              <div>BE Total: {formatCHF(playerGoalBeTotal)}</div>
+              <div>BE Neukunden: {formatCHF(kpiOverviewConfig[0].playerGoal)}</div>
+              <div>Anz. Neukunden: {formatNumber(Math.round(kpiOverviewConfig[1].playerGoal))}</div>
+              <div>BE Total: {formatCHF(kpiOverviewConfig[2].playerGoal)}</div>
             </div>
           )}
         </div>
@@ -481,161 +432,58 @@ export default function GoalsManagement() {
           </div>
         ) : (
           <>
-            {/* BE Neukunden */}
-            <div style={{ marginBottom: 24 }}>
-              <h4 className="mb-8">BE Neukunden (CHF)</h4>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Kennzahl</th>
-                      {MONTHS.map(m => (
-                        <th key={m} style={{ textAlign: 'right', minWidth: 80 }}>{getMonthShort(m)}</th>
-                      ))}
-                      <th style={{ textAlign: 'right', minWidth: 100, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Ziel
-                      </th>
-                      <th style={{ textAlign: 'right', minWidth: 80, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Erreichung
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>Kumuliert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 13 }}>
-                          {formatNumber(d.cumBeNeukunden)}
+            {kpiOverviewConfig.map((kpi, idx) => (
+              <div key={kpi.cumKey} style={idx < kpiOverviewConfig.length - 1 ? { marginBottom: 24 } : undefined}>
+                <h4 className="mb-8">{kpi.label}</h4>
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Kennzahl</th>
+                        {MONTHS.map(m => (
+                          <th key={m} style={{ textAlign: 'right', minWidth: 80 }}>{getMonthShort(m)}</th>
+                        ))}
+                        <th style={{ textAlign: 'right', minWidth: 100, background: 'var(--bg-input)', fontWeight: 700 }}>
+                          Ziel
+                        </th>
+                        <th style={{ textAlign: 'right', minWidth: 80, background: 'var(--bg-input)', fontWeight: 700 }}>
+                          Erreichung
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontWeight: 600 }}>Kumuliert</td>
+                        {overviewData.map(d => (
+                          <td key={d.month} className="font-mono text-right" style={{ fontSize: 13 }}>
+                            {formatNumber(d[kpi.cumKey])}
+                          </td>
+                        ))}
+                        <td className="font-mono text-right" style={{ fontSize: 13, fontWeight: 600 }}>
+                          {formatNumber(Math.round(kpi.playerGoal))}
                         </td>
-                      ))}
-                      <td className="font-mono text-right" style={{ fontSize: 13, fontWeight: 600 }}>
-                        {formatNumber(Math.round(playerGoalBeNeukunden))}
-                      </td>
-                      <td
-                        className="font-mono text-right font-bold"
-                        style={{ fontSize: 13, color: rateColor(rateBeNeukunden) }}
-                      >
-                        {rateBeNeukunden.toFixed(1)}%
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>Monatswert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                          {d.deltaBeNeukunden > 0 ? `+${formatNumber(d.deltaBeNeukunden)}` : '-'}
+                        <td
+                          className="font-mono text-right font-bold"
+                          style={{ fontSize: 13, color: rateColor(kpi.rate) }}
+                        >
+                          {kpi.rate.toFixed(1)}%
                         </td>
-                      ))}
-                      <td />
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
+                      </tr>
+                      <tr>
+                        <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>Monatswert</td>
+                        {overviewData.map(d => (
+                          <td key={d.month} className="font-mono text-right" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            {d[kpi.deltaKey] > 0 ? `+${formatNumber(d[kpi.deltaKey])}` : '-'}
+                          </td>
+                        ))}
+                        <td />
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-
-            {/* Anz. Neukunden */}
-            <div style={{ marginBottom: 24 }}>
-              <h4 className="mb-8">Anz. Neukunden</h4>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Kennzahl</th>
-                      {MONTHS.map(m => (
-                        <th key={m} style={{ textAlign: 'right', minWidth: 80 }}>{getMonthShort(m)}</th>
-                      ))}
-                      <th style={{ textAlign: 'right', minWidth: 100, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Ziel
-                      </th>
-                      <th style={{ textAlign: 'right', minWidth: 80, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Erreichung
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>Kumuliert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 13 }}>
-                          {formatNumber(d.cumAnzNeukunden)}
-                        </td>
-                      ))}
-                      <td className="font-mono text-right" style={{ fontSize: 13, fontWeight: 600 }}>
-                        {formatNumber(Math.round(playerGoalAnzNeukunden))}
-                      </td>
-                      <td
-                        className="font-mono text-right font-bold"
-                        style={{ fontSize: 13, color: rateColor(rateAnzNeukunden) }}
-                      >
-                        {rateAnzNeukunden.toFixed(1)}%
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>Monatswert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                          {d.deltaAnzNeukunden > 0 ? `+${formatNumber(d.deltaAnzNeukunden)}` : '-'}
-                        </td>
-                      ))}
-                      <td />
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* BE Total */}
-            <div>
-              <h4 className="mb-8">BE Total (CHF)</h4>
-              <div className="table-wrapper">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Kennzahl</th>
-                      {MONTHS.map(m => (
-                        <th key={m} style={{ textAlign: 'right', minWidth: 80 }}>{getMonthShort(m)}</th>
-                      ))}
-                      <th style={{ textAlign: 'right', minWidth: 100, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Ziel
-                      </th>
-                      <th style={{ textAlign: 'right', minWidth: 80, background: 'var(--bg-input)', fontWeight: 700 }}>
-                        Erreichung
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>Kumuliert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 13 }}>
-                          {formatNumber(d.cumBeTotal)}
-                        </td>
-                      ))}
-                      <td className="font-mono text-right" style={{ fontSize: 13, fontWeight: 600 }}>
-                        {formatNumber(Math.round(playerGoalBeTotal))}
-                      </td>
-                      <td
-                        className="font-mono text-right font-bold"
-                        style={{ fontSize: 13, color: rateColor(rateBeTotal) }}
-                      >
-                        {rateBeTotal.toFixed(1)}%
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>Monatswert</td>
-                      {overviewData.map(d => (
-                        <td key={d.month} className="font-mono text-right" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                          {d.deltaBeTotal > 0 ? `+${formatNumber(d.deltaBeTotal)}` : '-'}
-                        </td>
-                      ))}
-                      <td />
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            ))}
           </>
         )}
       </div>

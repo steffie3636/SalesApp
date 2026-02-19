@@ -19,3 +19,10 @@ export function calculatePlayerShare(teamGoal, playerCount) {
   if (!playerCount || playerCount === 0) return 0
   return teamGoal / playerCount
 }
+
+// Farbe basierend auf Erreichungsgrad
+export function rateColor(rate) {
+  if (rate >= 100) return 'var(--color-mint)'
+  if (rate >= 50) return 'var(--color-yellow)'
+  return 'var(--color-red)'
+}

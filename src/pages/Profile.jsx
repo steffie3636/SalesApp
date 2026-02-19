@@ -217,9 +217,7 @@ export default function Profile() {
           <h3 className="card-title">KPI-Ziele</h3>
         </div>
         <div className="flex flex-col gap-20">
-          {kpiGoals.map((kpi) => {
-            const percent = kpi.target > 0 ? (kpi.current / kpi.target) * 100 : 0
-            return (
+          {kpiGoals.map((kpi) => (
               <div key={kpi.label}>
                 <div className="flex items-center justify-between mb-8">
                   <span style={{ fontWeight: 600, fontSize: 15 }}>{kpi.label}</span>
@@ -229,8 +227,7 @@ export default function Profile() {
                 </div>
                 <ProgressBar value={kpi.current} max={kpi.target} color={kpi.color} height={8} showLabel />
               </div>
-            )
-          })}
+          ))}
         </div>
       </div>
 
