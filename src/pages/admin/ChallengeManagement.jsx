@@ -30,6 +30,7 @@ export default function ChallengeManagement() {
   const [deadline, setDeadline] = useState('')
   const [icon, setIcon] = useState(ICONS[0])
   const [color, setColor] = useState(COLORS[0])
+  const [challengeType, setChallengeType] = useState('standard')
 
   function resetForm() {
     setTitle('')
@@ -40,6 +41,7 @@ export default function ChallengeManagement() {
     setDeadline('')
     setIcon(ICONS[0])
     setColor(COLORS[0])
+    setChallengeType('standard')
   }
 
   function openAdd() {
@@ -58,6 +60,7 @@ export default function ChallengeManagement() {
     setDeadline(challenge.deadline || '')
     setIcon(challenge.icon || ICONS[0])
     setColor(challenge.color || COLORS[0])
+    setChallengeType(challenge.challenge_type || 'standard')
     setModalOpen(true)
   }
 
@@ -85,6 +88,7 @@ export default function ChallengeManagement() {
         deadline: deadline || null,
         icon,
         color,
+        challenge_type: challengeType,
       }
 
       if (editingChallenge) {
@@ -315,6 +319,37 @@ export default function ChallengeManagement() {
             />
           </Field>
         </div>
+
+        {/* Typ-Auswahl */}
+        <Field label="Challenge-Typ">
+          <div className="flex gap-8">
+            {[
+              { value: 'standard', label: 'Standard', desc: 'Fortschritt manuell durch Admin' },
+              { value: 'event', label: 'Event-Tracking', desc: 'Spieler tragen Events selbst ein' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setChallengeType(opt.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: challengeType === opt.value
+                    ? `2px solid ${color}`
+                    : '2px solid var(--border-color)',
+                  background: challengeType === opt.value ? `${color}10` : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all var(--transition-fast)',
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{opt.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </Field>
 
         {/* F-CV-02: Icon-Auswahl */}
         <Field label="Icon">
