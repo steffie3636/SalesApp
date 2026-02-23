@@ -5,6 +5,8 @@ import Leaderboard from './pages/Leaderboard'
 import Achievements from './pages/Achievements'
 import Profile from './pages/Profile'
 import GoalsDashboard from './pages/GoalsDashboard'
+import Challenges from './pages/Challenges'
+import ChallengeEventDetail from './pages/ChallengeEventDetail'
 
 import PlayerManagement from './pages/admin/PlayerManagement'
 import ChallengeManagement from './pages/admin/ChallengeManagement'
@@ -14,6 +16,7 @@ import GoalsManagement from './pages/admin/GoalsManagement'
 // Navigation items
 const NAV_ITEMS = [
   { path: '/', label: 'Rangliste', icon: '🏆' },
+  { path: '/challenges', label: 'Challenges', icon: '🎯' },
   { path: '/achievements', label: 'Auszeichnungen', icon: '🏅' },
   { path: '/goals', label: 'Jahresziele', icon: '📊' },
   { path: '/profile', label: 'Mein Profil', icon: '👤' },
@@ -32,7 +35,7 @@ function Layout() {
 
   // Page title based on current route
   const allItems = [...NAV_ITEMS, ...ADMIN_NAV_ITEMS]
-  const currentItem = allItems.find(item => item.path === location.pathname)
+  const currentItem = allItems.find(item => location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)))
   const pageTitle = currentItem?.label || 'SalesArena'
 
   return (
@@ -105,6 +108,8 @@ function Layout() {
         <main className="app-content">
           <Routes>
             <Route path="/" element={<Leaderboard />} />
+            <Route path="/challenges" element={<Challenges />} />
+            <Route path="/challenges/:id" element={<ChallengeEventDetail />} />
             <Route path="/achievements" element={<Achievements />} />
             <Route path="/goals" element={<GoalsDashboard />} />
             <Route path="/profile" element={<Profile />} />

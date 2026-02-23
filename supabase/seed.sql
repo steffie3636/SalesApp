@@ -35,11 +35,12 @@ INSERT INTO player_badges (player_id, badge_id) VALUES
   ('a1b2c3d4-0006-4000-8000-000000000006', 'b1b2c3d4-0005-4000-8000-000000000005');
 
 -- Seed Challenges
-INSERT INTO challenges (title, description, reward_points, target_value, current_progress, deadline, icon, color) VALUES
-  ('Deal Crusher', '20 Deals in einem Monat abschliessen', 500, 20, 14, '2025-03-31', '💪', '#6366f1'),
-  ('Cold Call King', '500 Anrufe in einem Quartal', 300, 500, 280, '2025-03-31', '📞', '#f97316'),
-  ('New Blood', '15 Neukunden in einem Quartal gewinnen', 400, 15, 9, '2025-03-31', '🩸', '#ec4899'),
-  ('Revenue Rocket', 'CHF 200''000 Umsatz in einem Quartal', 600, 200000, 135000, '2025-03-31', '🚀', '#10b981');
+INSERT INTO challenges (title, description, reward_points, target_value, current_progress, deadline, icon, color, challenge_type) VALUES
+  ('Deal Crusher', '20 Deals in einem Monat abschliessen', 500, 20, 14, '2025-03-31', '💪', '#6366f1', 'standard'),
+  ('Cold Call King', '500 Anrufe in einem Quartal', 300, 500, 280, '2025-03-31', '📞', '#f97316', 'standard'),
+  ('New Blood', '15 Neukunden in einem Quartal gewinnen', 400, 15, 9, '2025-03-31', '🩸', '#ec4899', 'standard'),
+  ('Revenue Rocket', 'CHF 200''000 Umsatz in einem Quartal', 600, 200000, 135000, '2025-03-31', '🚀', '#10b981', 'standard'),
+  ('Teilnahme an Events', 'Nehmt an 4 Messen oder Events teil und erweitert euer Netzwerk. Tragt eure Eventteilnahmen selbst ein.', 100, 4, 0, '2025-12-31', '🎪', '#8b5cf6', 'event');
 
 -- Seed Annual Goals 2025
 INSERT INTO annual_goals (year, be_neukunden, anz_neukunden, be_total) VALUES

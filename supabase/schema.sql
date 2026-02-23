@@ -47,6 +47,17 @@ CREATE TABLE IF NOT EXISTS challenges (
   deadline DATE,
   icon TEXT DEFAULT '🎯',
   color TEXT DEFAULT '#6366f1',
+  challenge_type TEXT DEFAULT 'standard' CHECK (challenge_type IN ('standard', 'event')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Event Participations table (for event-type challenges)
+CREATE TABLE IF NOT EXISTS event_participations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  event_title TEXT NOT NULL,
+  event_date DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -101,6 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_player_badges_badge ON player_badges(badge_id);
 CREATE INDEX IF NOT EXISTS idx_monthly_actuals_player_year ON monthly_actuals(player_id, year);
 CREATE INDEX IF NOT EXISTS idx_activity_log_player ON activity_log(player_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_participations_challenge ON event_participations(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_event_participations_player ON event_participations(player_id);
 
 -- Row Level Security Policies
 ALTER TABLE players ENABLE ROW LEVEL SECURITY;
@@ -111,6 +124,7 @@ ALTER TABLE annual_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE monthly_actuals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_participations ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to check admin role
 CREATE OR REPLACE FUNCTION is_admin()
@@ -168,6 +182,17 @@ CREATE POLICY "Admins can update monthly_actuals" ON monthly_actuals FOR UPDATE 
 CREATE POLICY "Everyone can read activity_log" ON activity_log FOR SELECT USING (true);
 CREATE POLICY "Admins can insert activity_log" ON activity_log FOR INSERT WITH CHECK (is_admin());
 
+-- Event Participations: everyone can read, players can manage their own
+CREATE POLICY "Everyone can read event_participations" ON event_participations FOR SELECT USING (true);
+CREATE POLICY "Players can insert own event_participations" ON event_participations FOR INSERT WITH CHECK (
+  player_id = (SELECT player_id FROM profiles WHERE id = auth.uid() LIMIT 1)
+  OR is_admin()
+);
+CREATE POLICY "Players can delete own event_participations" ON event_participations FOR DELETE USING (
+  player_id = (SELECT player_id FROM profiles WHERE id = auth.uid() LIMIT 1)
+  OR is_admin()
+);
+
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -180,6 +205,70 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER monthly_actuals_updated_at
   BEFORE UPDATE ON monthly_actuals
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Trigger: Punkte automatisch aktualisieren bei Event-Challenges
+CREATE OR REPLACE FUNCTION sync_event_challenge_points()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_challenge challenges%ROWTYPE;
+  v_count_before INTEGER;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    SELECT * INTO v_challenge FROM challenges WHERE id = NEW.challenge_id;
+    -- Anzahl Einträge vor diesem Insert (aktueller Count - 1)
+    SELECT COUNT(*) - 1 INTO v_count_before
+    FROM event_participations
+    WHERE challenge_id = NEW.challenge_id AND player_id = NEW.player_id;
+
+    -- Punkte vergeben falls unter Ziel
+    IF v_count_before < v_challenge.target_value THEN
+      UPDATE players
+      SET
+        points = points + v_challenge.reward_points,
+        level = GREATEST(1, (FLOOR((points + v_challenge.reward_points) / 1000) + 1)::INTEGER)
+      WHERE id = NEW.player_id;
+    END IF;
+
+    -- Gesamtfortschritt der Challenge aktualisieren
+    UPDATE challenges
+    SET current_progress = (
+      SELECT COUNT(*) FROM event_participations WHERE challenge_id = NEW.challenge_id
+    )
+    WHERE id = NEW.challenge_id;
+
+    RETURN NEW;
+
+  ELSIF TG_OP = 'DELETE' THEN
+    SELECT * INTO v_challenge FROM challenges WHERE id = OLD.challenge_id;
+    -- Anzahl Einträge vor diesem Delete (aktueller Count + 1)
+    SELECT COUNT(*) + 1 INTO v_count_before
+    FROM event_participations
+    WHERE challenge_id = OLD.challenge_id AND player_id = OLD.player_id;
+
+    -- Punkte abziehen falls dieser Eintrag innerhalb des Ziels lag
+    IF v_count_before <= v_challenge.target_value THEN
+      UPDATE players
+      SET
+        points = GREATEST(0, points - v_challenge.reward_points),
+        level = GREATEST(1, (FLOOR(GREATEST(0, points - v_challenge.reward_points) / 1000) + 1)::INTEGER)
+      WHERE id = OLD.player_id;
+    END IF;
+
+    -- Gesamtfortschritt der Challenge aktualisieren
+    UPDATE challenges
+    SET current_progress = (
+      SELECT COUNT(*) FROM event_participations WHERE challenge_id = OLD.challenge_id
+    )
+    WHERE id = OLD.challenge_id;
+
+    RETURN OLD;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER event_participations_points_sync
+  AFTER INSERT OR DELETE ON event_participations
+  FOR EACH ROW EXECUTE FUNCTION sync_event_challenge_points();
 
 -- Automatically create a profile when a new user signs up
 CREATE OR REPLACE FUNCTION handle_new_user()

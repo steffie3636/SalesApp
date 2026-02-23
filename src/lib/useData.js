@@ -72,6 +72,15 @@ export function useMonthlyActuals(year) {
   })
 }
 
+// Event Participations für eine Challenge
+export function useEventParticipations(challengeId) {
+  return useSupabase('event_participations', {
+    select: '*, player:players(id, name, initials)',
+    filter: challengeId ? { challenge_id: challengeId } : undefined,
+    order: { column: 'event_date', ascending: false },
+  })
+}
+
 // Activity log
 export function useActivityLog(limit = 10) {
   const [data, setData] = useState([])
